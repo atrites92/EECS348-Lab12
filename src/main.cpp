@@ -6,83 +6,116 @@
 #include <limits>
 #include "extractNumeric.h"
 
-bool isNumberChar(char c) {
-    return std::isdigit(c) || c == '+' || c == '-' || c == '.' || c == 'e' || c == 'E';
+bool isDigit(char c) {
+    return std::isdigit(static_cast<unsigned char>(c));
 }
 
-double powerOfTen(int exponent) {
-    double result = 1.0;
+bool isPossibleNumberStart(char c) {
+    return isDigit(c) || c == '+' || c == '-' || c == '.';
+}
 
-    if (exponent > 308 || exponent < -308) {
-        return std::numeric_limits<double>::infinity();
+bool laterNumericIntentExists(const std::string& str, int startIndex) {
+    for (int i = startIndex; i < static_cast<int>(str.length()); i++) {
+        if (isDigit(str[i]) || str[i] == '.') {
+            return true;
+        }
+
+        if ((str[i] == '+' || str[i] == '-') &&
+            i + 1 < static_cast<int>(str.length()) &&
+            (isDigit(str[i + 1]) || str[i + 1] == '.')) {
+            return true;
+        }
     }
 
-    for (int i = 0; i < std::abs(exponent); i++) {
+    return false;
+}
+
+double powerOfTen(int exponent, bool& inRange) {
+    inRange = true;
+
+    if (exponent > 308) {
+        inRange = false;
+        return 0.0;
+    }
+
+    if (exponent < -308) {
+        return 0.0;
+    }
+
+    double result = 1.0;
+    int count = std::abs(exponent);
+
+    for (int i = 0; i < count; i++) {
         result *= 10.0;
     }
 
-    return exponent >= 0 ? result : 1.0 / result;
+    if (exponent < 0) {
+        result = 1.0 / result;
+    }
+
+    return result;
 }
 
-double parseCandidate(const std::string& s, bool& valid) {
-    valid = false;
-
-    int i = 0;
-    int n = s.length();
+bool parseFromIndex(const std::string& str, int start, int& end, double& value) {
+    int i = start;
+    int n = static_cast<int>(str.length());
 
     int sign = 1;
-    if (i < n && (s[i] == '+' || s[i] == '-')) {
-        if (s[i] == '-') {
+
+    if (str[i] == '+' || str[i] == '-') {
+        if (str[i] == '-') {
             sign = -1;
         }
         i++;
     }
 
     double integerPart = 0.0;
+    int digitsBeforeDecimal = 0;
     bool hasDigitsBeforeDecimal = false;
 
-    while (i < n && std::isdigit(s[i])) {
+    while (i < n && isDigit(str[i])) {
         hasDigitsBeforeDecimal = true;
-        integerPart = integerPart * 10 + (s[i] - '0');
+        digitsBeforeDecimal++;
 
-        if (integerPart > std::numeric_limits<double>::max() / 10.0) {
-            return INVALID_VALUE;
+        if (digitsBeforeDecimal > 18) {
+            return false;
         }
 
+        integerPart = integerPart * 10.0 + (str[i] - '0');
         i++;
     }
 
-    double fractionPart = 0.0;
+    double fractionalPart = 0.0;
     double divisor = 10.0;
     bool hasDigitsAfterDecimal = false;
 
-    if (i < n && s[i] == '.') {
+    if (i < n && str[i] == '.') {
         i++;
 
-        while (i < n && std::isdigit(s[i])) {
+        while (i < n && isDigit(str[i])) {
             hasDigitsAfterDecimal = true;
-            fractionPart += (s[i] - '0') / divisor;
+            fractionalPart += (str[i] - '0') / divisor;
             divisor *= 10.0;
             i++;
         }
     }
 
     if (!hasDigitsBeforeDecimal && !hasDigitsAfterDecimal) {
-        return INVALID_VALUE;
+        return false;
     }
 
-    double base = integerPart + fractionPart;
+    double base = integerPart + fractionalPart;
 
     int exponent = 0;
     int exponentSign = 1;
     bool hasExponent = false;
 
-    if (i < n && (s[i] == 'e' || s[i] == 'E')) {
+    if (i < n && (str[i] == 'e' || str[i] == 'E')) {
         hasExponent = true;
         i++;
 
-        if (i < n && (s[i] == '+' || s[i] == '-')) {
-            if (s[i] == '-') {
+        if (i < n && (str[i] == '+' || str[i] == '-')) {
+            if (str[i] == '-') {
                 exponentSign = -1;
             }
             i++;
@@ -90,82 +123,61 @@ double parseCandidate(const std::string& s, bool& valid) {
 
         bool hasExponentDigits = false;
 
-        while (i < n && std::isdigit(s[i])) {
+        while (i < n && isDigit(str[i])) {
             hasExponentDigits = true;
-            exponent = exponent * 10 + (s[i] - '0');
+            exponent = exponent * 10 + (str[i] - '0');
 
             if (exponent > 999) {
-                return INVALID_VALUE;
+                return false;
             }
 
             i++;
         }
 
         if (!hasExponentDigits) {
-            return INVALID_VALUE;
+            return false;
         }
     }
 
-    if (i != n) {
-        return INVALID_VALUE;
-    }
-
+    bool inRange = true;
     double result = sign * base;
 
     if (hasExponent) {
-        double multiplier = powerOfTen(exponentSign * exponent);
+        double multiplier = powerOfTen(exponentSign * exponent, inRange);
 
-        if (!std::isfinite(multiplier)) {
-            return INVALID_VALUE;
+        if (!inRange) {
+            return false;
         }
 
         result *= multiplier;
     }
 
     if (!std::isfinite(result)) {
-        return INVALID_VALUE;
+        return false;
     }
 
-    valid = true;
-    return result;
+    end = i;
+    value = result;
+    return true;
 }
 
 double extractNumeric(const std::string& str) {
     for (int i = 0; i < static_cast<int>(str.length()); i++) {
-        if (std::isdigit(str[i]) || str[i] == '+' || str[i] == '-' || str[i] == '.') {
-            int start = i;
+        if (!isPossibleNumberStart(str[i])) {
+            continue;
+        }
 
-            if ((str[i] == '+' || str[i] == '-') &&
-                i + 1 < static_cast<int>(str.length()) &&
-                (str[i + 1] == '+' || str[i + 1] == '-')) {
-                continue;
-            }
+        int end = i;
+        double value = 0.0;
 
-            int end = start;
+        bool success = parseFromIndex(str, i, end, value);
 
-            while (end < static_cast<int>(str.length()) && isNumberChar(str[end])) {
-                end++;
-            }
-
-            std::string candidate = str.substr(start, end - start);
-
-            bool valid = false;
-            double value = parseCandidate(candidate, valid);
-
-            if (valid) {
-                return value;
-            }
-
-            bool containsDigit = false;
-            for (char c : candidate) {
-                if (std::isdigit(c)) {
-                    containsDigit = true;
-                }
-            }
-
-            if (containsDigit) {
+        if (success) {
+            if (laterNumericIntentExists(str, end)) {
                 return INVALID_VALUE;
             }
+
+            return value;
         }
     }
 
