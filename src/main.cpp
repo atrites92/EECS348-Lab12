@@ -77,6 +77,15 @@ bool parseFromIndex(const std::string& str, int start, int& end, double& value) 
         hasDigitsBeforeDecimal = true;
         digitsBeforeDecimal++;
 
+        /*
+            The assignment sample treats this value as invalid:
+
+            99999999999999999999
+
+            A double can technically store a rounded approximation of it,
+            but the expected output says it should be rejected. Therefore,
+            this program rejects integer portions longer than 18 digits.
+        */
         if (digitsBeforeDecimal > 18) {
             return false;
         }
@@ -118,6 +127,7 @@ bool parseFromIndex(const std::string& str, int start, int& end, double& value) 
             if (str[i] == '-') {
                 exponentSign = -1;
             }
+
             i++;
         }
 
@@ -178,6 +188,18 @@ double extractNumeric(const std::string& str) {
             }
 
             return value;
+        } else {
+            /*
+                Important fix:
+
+                If parsing fails after starting on a digit, we should not keep
+                scanning inside that same bad number. Otherwise a giant invalid
+                number like 99999999999999999999 could be rejected at first,
+                but then accepted starting from the second or third digit.
+            */
+            if (isDigit(str[i])) {
+                return INVALID_VALUE;
+            }
         }
     }
 
