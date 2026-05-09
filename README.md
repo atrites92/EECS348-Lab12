@@ -3,7 +3,7 @@ Lab 12 - Use AI to generate code
 
 Used ChatGPT Instant on 5/9/2026
 
-Prompt given (everything below this line):
+First prompt given:
 
 Can you complete this assignment for me? Give me a header file, a .cpp file, and a make file for me to add to a github.
 
@@ -160,3 +160,20 @@ Invalid input: no valid floating-point number found
 Enter a string (or 'END' to quit): END
 Program terminated.
 
+--------------------------------------------------------------------------------------------
+After testing the output, the program failed the following sample runs:
+| Test Case | Your Output | Expected Output |
+| result: -2.E+3end | Invalid input: no valid floating-point number found | -2000.0000 |
+| --A2.5--- | Invalid input: no valid floating-point number found | 2.5000 |
+| 99999999999999999999 | 100000000000000016384.0000 | Invalid input: no valid floating-point number found |
+
+The same AI dialog was given the following prompt on 5/9/2026:
+
+You're program failed the following cases according to the given sample runs: 
+
+| Test Case | Your Output | Expected Output |
+|result: -2.E+3end | Invalid input: no valid floating-point number found | -2000.0000 |
+| --A2.5--- | Invalid input: no valid floating-point number found | 2.5000 |
+| 99999999999999999999 | 100000000000000016384.0000 | Invalid input: no valid floating-point number found | 
+
+Please fix these issues.
